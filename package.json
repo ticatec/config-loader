@@ -18,6 +18,14 @@
   "keywords": ["config", "configuration", "loader", "yaml", "consul", "nacos", "node.js"],
   "author": "Henry Feng",
   "license": "MIT",
+  "repository": {
+    "type": "https",
+    "url": "https://github.com/ticatec/config-loader.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ticatec/config-loader/issues"
+  },
+  "homepage": "https://github.com/ticatec/config-loader",
   "dependencies": {
     "yaml": "^2.7.0"
   },
