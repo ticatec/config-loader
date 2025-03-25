@@ -2,6 +2,8 @@
 
 This project provides a flexible and extensible configuration loader that supports loading configurations from various sources, including local files, Consul, and Nacos.
 
+[中文文档](./README_CN.md)
+
 ## Features
 
 -   **Abstraction:** Uses an abstract `BaseLoader` class, allowing easy extension for new configuration sources.
