@@ -1,5 +1,7 @@
 好的，这是将你提供的 Markdown 文档翻译成中文的结果：
 
+[English document](./README.md)
+
 # 配置加载器
 
 这个项目提供了一个灵活且可扩展的配置加载器，支持从各种来源加载配置，包括本地文件、Consul 和 Nacos。
