@@ -10,8 +10,10 @@ export default class ConsulLoader extends BaseLoader {
         super();
         let config: any = {
             host: process.env['CONSUL_HOST'],
-            token: process.env['CONSUL_TOKEN'],
-            secure: (process.env['SSL'] ?? 'false').toLowerCase() == 'true'
+            secure: (process.env['SSL'] ?? 'false').toLowerCase() == 'true',
+            defaults: {
+                token: process.env['CONSUL_TOKEN']
+            }
         }
         let port: string = process.env['CONSUL_PORT'];
         console.log("配置参数：", config, port);

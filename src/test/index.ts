@@ -7,7 +7,7 @@ const main = async (): Promise<any> => {
     let loader: BaseLoader = await getLoader(type);
     console.log(await loader.load(process.env['CONFIG_FILE']));
 
-    console.log(await loader.load('common-logger.yaml', /#{service-name}/g, 'my-service'))
+    console.log(await loader.load('dev/common-logger.yaml', /#{service-name}/g, 'my-service'))
 }
 
 main().then(()=>{
