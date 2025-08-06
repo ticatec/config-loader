@@ -240,6 +240,325 @@ includes:
       index_prefix: ecommerce_v2
 ```
 
+## 扩展库
+
+配置加载器设计为易于扩展。您可以通过继承 `BaseLoader` 类来创建自定义加载器，以支持任何配置源。以下是使用流行配置中心的实际示例。
+
+### 创建自定义加载器
+
+#### 示例 1: etcd 配置加载器
+
+```typescript
+import BaseLoader from '@ticatec/config-loader/dist/lib/BaseLoader';
+import { Etcd3 } from 'etcd3';
+
+export default class EtcdLoader extends BaseLoader {
+    private client: Etcd3;
+
+    constructor() {
+        super();
+        this.client = new Etcd3({
+            hosts: process.env['ETCD_HOSTS']?.split(',') || ['http://localhost:2379'],
+            auth: {
+                username: process.env['ETCD_USERNAME'],
+                password: process.env['ETCD_PASSWORD']
+            }
+        });
+    }
+
+    /**
+     * 从 etcd 键值存储加载配置
+     * @param fileName - etcd 键路径
+     * @returns 返回配置内容的 Promise
+     * @protected
+     */
+    protected async loadFile(fileName: string): Promise<string> {
+        try {
+            const value = await this.client.get(fileName);
+            if (!value) {
+                throw new Error(`在 etcd 中未找到配置键 '${fileName}'`);
+            }
+            return value.toString();
+        } catch (error) {
+            throw new Error(`从 etcd 加载失败: ${error.message}`);
+        }
+    }
+}
+```
+
+**使用方法：**
+```typescript
+import EtcdLoader from './loaders/EtcdLoader';
+
+// 设置环境变量
+process.env.ETCD_HOSTS = 'http://etcd1:2379,http://etcd2:2379,http://etcd3:2379';
+process.env.ETCD_USERNAME = 'config_user';
+process.env.ETCD_PASSWORD = 'config_pass';
+
+const loader = new EtcdLoader();
+const config = await loader.load('/myapp/config/production.yaml');
+```
+
+#### 示例 2: Eureka 配置加载器
+
+```typescript
+import BaseLoader from '@ticatec/config-loader/dist/lib/BaseLoader';
+import axios from 'axios';
+
+export default class EurekaLoader extends BaseLoader {
+    private eurekaUrl: string;
+    private appName: string;
+
+    constructor() {
+        super();
+        this.eurekaUrl = process.env['EUREKA_URL'] || 'http://localhost:8761/eureka';
+        this.appName = process.env['EUREKA_APP_NAME'] || 'config-service';
+    }
+
+    /**
+     * 从 Eureka 服务实例加载配置
+     * @param fileName - 服务上的配置文件路径
+     * @returns 返回配置内容的 Promise
+     * @protected
+     */
+    protected async loadFile(fileName: string): Promise<string> {
+        try {
+            // 从 Eureka 获取服务实例
+            const instanceUrl = await this.getServiceInstanceUrl();
+            
+            // 从服务实例获取配置
+            const response = await axios.get(`${instanceUrl}/config/${fileName}`, {
+                timeout: 5000,
+                headers: {
+                    'Accept': 'application/x-yaml'
+                }
+            });
+
+            return response.data;
+        } catch (error) {
+            throw new Error(`从 Eureka 服务加载失败: ${error.message}`);
+        }
+    }
+
+    private async getServiceInstanceUrl(): Promise<string> {
+        const response = await axios.get(`${this.eurekaUrl}/apps/${this.appName}`, {
+            headers: { 'Accept': 'application/json' }
+        });
+
+        const instances = response.data.application?.instance;
+        if (!instances || instances.length === 0) {
+            throw new Error(`未找到服务实例: ${this.appName}`);
+        }
+
+        // 使用第一个可用实例
+        const instance = Array.isArray(instances) ? instances[0] : instances;
+        const protocol = instance.securePort?.enabled ? 'https' : 'http';
+        const port = instance.securePort?.enabled ? instance.securePort['$'] : instance.port['$'];
+        
+        return `${protocol}://${instance.hostName}:${port}`;
+    }
+}
+```
+
+**使用方法：**
+```typescript
+import EurekaLoader from './loaders/EurekaLoader';
+
+// 设置环境变量
+process.env.EUREKA_URL = 'http://eureka-server:8761/eureka';
+process.env.EUREKA_APP_NAME = 'config-service';
+
+const loader = new EurekaLoader();
+const config = await loader.load('application.yaml');
+```
+
+### 高级集成模式
+
+#### 模式 1: 自定义加载器工厂
+
+```typescript
+import { BaseLoader } from '@ticatec/config-loader';
+import EtcdLoader from './loaders/EtcdLoader';
+import EurekaLoader from './loaders/EurekaLoader';
+
+export const getAdvancedLoader = async (type: string): Promise<BaseLoader> => {
+    switch (type) {
+        case 'etcd':
+            return new EtcdLoader();
+        case 'eureka':
+            return new EurekaLoader();
+        case 'nacos':
+            const NacosLoader = (await import('@ticatec/config-loader/dist/lib/nacos/NacosConfigLoader')).default;
+            return new NacosLoader();
+        case 'consul':
+            const ConsulLoader = (await import('@ticatec/config-loader/dist/lib/consul/ConsulLoader')).default;
+            return new ConsulLoader();
+        default:
+            const LocalFileLoader = (await import('@ticatec/config-loader/dist/lib/local-file/LocalFileLoader')).default;
+            return new LocalFileLoader();
+    }
+};
+```
+
+#### 模式 2: 多源配置
+
+```typescript
+import { PostLoader } from '@ticatec/config-loader';
+import { getAdvancedLoader } from './advanced-loaders';
+
+export const loadMultiSourceConfig = async (
+    sources: Array<{ type: string; configFile: string; key?: string }>,
+    postLoader?: PostLoader
+): Promise<any> => {
+    let finalConfig = {};
+
+    for (const source of sources) {
+        const loader = await getAdvancedLoader(source.type);
+        const config = await loader.load(source.configFile, postLoader);
+        
+        if (source.key) {
+            finalConfig[source.key] = config;
+        } else {
+            // 如果没有指定键则深度合并
+            finalConfig = { ...finalConfig, ...config };
+        }
+    }
+
+    return finalConfig;
+};
+
+// 使用示例
+const config = await loadMultiSourceConfig([
+    { type: 'etcd', configFile: '/app/database.yaml', key: 'database' },
+    { type: 'eureka', configFile: 'services.yaml', key: 'services' },
+    { type: 'local', configFile: 'app.yaml' }
+]);
+```
+
+### 环境配置
+
+#### etcd 加载器配置
+
+```bash
+# etcd 配置
+ETCD_HOSTS=http://etcd1:2379,http://etcd2:2379,http://etcd3:2379
+ETCD_USERNAME=config_user
+ETCD_PASSWORD=config_secret
+ETCD_PREFIX=/myapp/config
+```
+
+#### Eureka 加载器配置
+
+```bash
+# Eureka 配置  
+EUREKA_URL=http://eureka-server:8761/eureka
+EUREKA_APP_NAME=config-service
+EUREKA_TIMEOUT=5000
+EUREKA_RETRY_COUNT=3
+```
+
+### 测试自定义加载器
+
+```typescript
+// etcd-loader.test.ts
+import EtcdLoader from '../loaders/EtcdLoader';
+
+describe('EtcdLoader', () => {
+    let loader: EtcdLoader;
+
+    beforeEach(() => {
+        process.env.ETCD_HOSTS = 'http://localhost:2379';
+        loader = new EtcdLoader();
+    });
+
+    it('should load configuration from etcd', async () => {
+        // 模拟 etcd 客户端或使用测试容器
+        const config = await loader.load('/test/config.yaml');
+        expect(config).toBeDefined();
+    });
+});
+
+// eureka-loader.test.ts
+import EurekaLoader from '../loaders/EurekaLoader';
+import nock from 'nock';
+
+describe('EurekaLoader', () => {
+    beforeEach(() => {
+        process.env.EUREKA_URL = 'http://localhost:8761/eureka';
+        process.env.EUREKA_APP_NAME = 'config-service';
+    });
+
+    it('should load configuration from Eureka service', async () => {
+        // 模拟 Eureka API 响应
+        nock('http://localhost:8761')
+            .get('/eureka/apps/config-service')
+            .reply(200, {
+                application: {
+                    instance: {
+                        hostName: 'config-service-host',
+                        port: { '$': '8080' },
+                        securePort: { enabled: false }
+                    }
+                }
+            });
+
+        nock('http://config-service-host:8080')
+            .get('/config/app.yaml')
+            .reply(200, 'app:\n  name: test\n  version: 1.0');
+
+        const loader = new EurekaLoader();
+        const config = await loader.load('app.yaml');
+        
+        expect(config.app.name).toBe('test');
+    });
+});
+```
+
+### 自定义加载器最佳实践
+
+1. **错误处理**: 始终在 try-catch 块中包装外部服务调用
+2. **超时设置**: 为网络请求设置适当的超时时间
+3. **缓存**: 考虑为频繁访问的配置实施缓存
+4. **身份验证**: 安全地处理身份验证令牌和凭据
+5. **连接池**: 尽可能重用连接
+6. **健康检查**: 为外部服务实施健康检查
+
+```typescript
+// 带错误处理和缓存的示例
+export default class RobustEtcdLoader extends BaseLoader {
+    private client: Etcd3;
+    private cache = new Map<string, { content: string; timestamp: number }>();
+    private cacheTTL = 60000; // 1 分钟
+
+    protected async loadFile(fileName: string): Promise<string> {
+        // 首先检查缓存
+        const cached = this.cache.get(fileName);
+        if (cached && (Date.now() - cached.timestamp) < this.cacheTTL) {
+            return cached.content;
+        }
+
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                const value = await this.client.get(fileName);
+                if (value) {
+                    const content = value.toString();
+                    // 缓存成功结果
+                    this.cache.set(fileName, { content, timestamp: Date.now() });
+                    return content;
+                }
+            } catch (error) {
+                retries--;
+                if (retries === 0) throw error;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        
+        throw new Error(`重试后仍未找到配置 '${fileName}'`);
+    }
+}
+```
+
 ## 贡献
 
 我们欢迎贡献！请查看我们的[贡献指南](CONTRIBUTING.md)了解详情。

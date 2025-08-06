@@ -240,6 +240,325 @@ includes:
       index_prefix: ecommerce_v2
 ```
 
+## Extending the Library
+
+The configuration loader is designed to be easily extensible. You can create custom loaders for any configuration source by extending the `BaseLoader` class. Here are practical examples using popular configuration centers.
+
+### Creating Custom Loaders
+
+#### Example 1: etcd Configuration Loader
+
+```typescript
+import BaseLoader from '@ticatec/config-loader/dist/lib/BaseLoader';
+import { Etcd3 } from 'etcd3';
+
+export default class EtcdLoader extends BaseLoader {
+    private client: Etcd3;
+
+    constructor() {
+        super();
+        this.client = new Etcd3({
+            hosts: process.env['ETCD_HOSTS']?.split(',') || ['http://localhost:2379'],
+            auth: {
+                username: process.env['ETCD_USERNAME'],
+                password: process.env['ETCD_PASSWORD']
+            }
+        });
+    }
+
+    /**
+     * Load configuration from etcd key-value store
+     * @param fileName - The etcd key path
+     * @returns Promise that resolves to the configuration content
+     * @protected
+     */
+    protected async loadFile(fileName: string): Promise<string> {
+        try {
+            const value = await this.client.get(fileName);
+            if (!value) {
+                throw new Error(`Configuration key '${fileName}' not found in etcd`);
+            }
+            return value.toString();
+        } catch (error) {
+            throw new Error(`Failed to load from etcd: ${error.message}`);
+        }
+    }
+}
+```
+
+**Usage:**
+```typescript
+import EtcdLoader from './loaders/EtcdLoader';
+
+// Set environment variables
+process.env.ETCD_HOSTS = 'http://etcd1:2379,http://etcd2:2379,http://etcd3:2379';
+process.env.ETCD_USERNAME = 'config_user';
+process.env.ETCD_PASSWORD = 'config_pass';
+
+const loader = new EtcdLoader();
+const config = await loader.load('/myapp/config/production.yaml');
+```
+
+#### Example 2: Eureka Configuration Loader
+
+```typescript
+import BaseLoader from '@ticatec/config-loader/dist/lib/BaseLoader';
+import axios from 'axios';
+
+export default class EurekaLoader extends BaseLoader {
+    private eurekaUrl: string;
+    private appName: string;
+
+    constructor() {
+        super();
+        this.eurekaUrl = process.env['EUREKA_URL'] || 'http://localhost:8761/eureka';
+        this.appName = process.env['EUREKA_APP_NAME'] || 'config-service';
+    }
+
+    /**
+     * Load configuration from Eureka service instance
+     * @param fileName - The configuration file path on the service
+     * @returns Promise that resolves to the configuration content
+     * @protected
+     */
+    protected async loadFile(fileName: string): Promise<string> {
+        try {
+            // Get service instances from Eureka
+            const instanceUrl = await this.getServiceInstanceUrl();
+            
+            // Fetch configuration from service instance
+            const response = await axios.get(`${instanceUrl}/config/${fileName}`, {
+                timeout: 5000,
+                headers: {
+                    'Accept': 'application/x-yaml'
+                }
+            });
+
+            return response.data;
+        } catch (error) {
+            throw new Error(`Failed to load from Eureka service: ${error.message}`);
+        }
+    }
+
+    private async getServiceInstanceUrl(): Promise<string> {
+        const response = await axios.get(`${this.eurekaUrl}/apps/${this.appName}`, {
+            headers: { 'Accept': 'application/json' }
+        });
+
+        const instances = response.data.application?.instance;
+        if (!instances || instances.length === 0) {
+            throw new Error(`No instances found for service: ${this.appName}`);
+        }
+
+        // Use the first available instance
+        const instance = Array.isArray(instances) ? instances[0] : instances;
+        const protocol = instance.securePort?.enabled ? 'https' : 'http';
+        const port = instance.securePort?.enabled ? instance.securePort['$'] : instance.port['$'];
+        
+        return `${protocol}://${instance.hostName}:${port}`;
+    }
+}
+```
+
+**Usage:**
+```typescript
+import EurekaLoader from './loaders/EurekaLoader';
+
+// Set environment variables
+process.env.EUREKA_URL = 'http://eureka-server:8761/eureka';
+process.env.EUREKA_APP_NAME = 'config-service';
+
+const loader = new EurekaLoader();
+const config = await loader.load('application.yaml');
+```
+
+### Advanced Integration Patterns
+
+#### Pattern 1: Factory with Custom Loaders
+
+```typescript
+import { BaseLoader } from '@ticatec/config-loader';
+import EtcdLoader from './loaders/EtcdLoader';
+import EurekaLoader from './loaders/EurekaLoader';
+
+export const getAdvancedLoader = async (type: string): Promise<BaseLoader> => {
+    switch (type) {
+        case 'etcd':
+            return new EtcdLoader();
+        case 'eureka':
+            return new EurekaLoader();
+        case 'nacos':
+            const NacosLoader = (await import('@ticatec/config-loader/dist/lib/nacos/NacosConfigLoader')).default;
+            return new NacosLoader();
+        case 'consul':
+            const ConsulLoader = (await import('@ticatec/config-loader/dist/lib/consul/ConsulLoader')).default;
+            return new ConsulLoader();
+        default:
+            const LocalFileLoader = (await import('@ticatec/config-loader/dist/lib/local-file/LocalFileLoader')).default;
+            return new LocalFileLoader();
+    }
+};
+```
+
+#### Pattern 2: Multi-Source Configuration
+
+```typescript
+import { PostLoader } from '@ticatec/config-loader';
+import { getAdvancedLoader } from './advanced-loaders';
+
+export const loadMultiSourceConfig = async (
+    sources: Array<{ type: string; configFile: string; key?: string }>,
+    postLoader?: PostLoader
+): Promise<any> => {
+    let finalConfig = {};
+
+    for (const source of sources) {
+        const loader = await getAdvancedLoader(source.type);
+        const config = await loader.load(source.configFile, postLoader);
+        
+        if (source.key) {
+            finalConfig[source.key] = config;
+        } else {
+            // Deep merge if no specific key
+            finalConfig = { ...finalConfig, ...config };
+        }
+    }
+
+    return finalConfig;
+};
+
+// Usage example
+const config = await loadMultiSourceConfig([
+    { type: 'etcd', configFile: '/app/database.yaml', key: 'database' },
+    { type: 'eureka', configFile: 'services.yaml', key: 'services' },
+    { type: 'local', configFile: 'app.yaml' }
+]);
+```
+
+### Environment Configuration
+
+#### For etcd Loader
+
+```bash
+# etcd Configuration
+ETCD_HOSTS=http://etcd1:2379,http://etcd2:2379,http://etcd3:2379
+ETCD_USERNAME=config_user
+ETCD_PASSWORD=config_secret
+ETCD_PREFIX=/myapp/config
+```
+
+#### For Eureka Loader
+
+```bash
+# Eureka Configuration  
+EUREKA_URL=http://eureka-server:8761/eureka
+EUREKA_APP_NAME=config-service
+EUREKA_TIMEOUT=5000
+EUREKA_RETRY_COUNT=3
+```
+
+### Testing Custom Loaders
+
+```typescript
+// etcd-loader.test.ts
+import EtcdLoader from '../loaders/EtcdLoader';
+
+describe('EtcdLoader', () => {
+    let loader: EtcdLoader;
+
+    beforeEach(() => {
+        process.env.ETCD_HOSTS = 'http://localhost:2379';
+        loader = new EtcdLoader();
+    });
+
+    it('should load configuration from etcd', async () => {
+        // Mock etcd client or use test container
+        const config = await loader.load('/test/config.yaml');
+        expect(config).toBeDefined();
+    });
+});
+
+// eureka-loader.test.ts
+import EurekaLoader from '../loaders/EurekaLoader';
+import nock from 'nock';
+
+describe('EurekaLoader', () => {
+    beforeEach(() => {
+        process.env.EUREKA_URL = 'http://localhost:8761/eureka';
+        process.env.EUREKA_APP_NAME = 'config-service';
+    });
+
+    it('should load configuration from Eureka service', async () => {
+        // Mock Eureka API responses
+        nock('http://localhost:8761')
+            .get('/eureka/apps/config-service')
+            .reply(200, {
+                application: {
+                    instance: {
+                        hostName: 'config-service-host',
+                        port: { '$': '8080' },
+                        securePort: { enabled: false }
+                    }
+                }
+            });
+
+        nock('http://config-service-host:8080')
+            .get('/config/app.yaml')
+            .reply(200, 'app:\n  name: test\n  version: 1.0');
+
+        const loader = new EurekaLoader();
+        const config = await loader.load('app.yaml');
+        
+        expect(config.app.name).toBe('test');
+    });
+});
+```
+
+### Best Practices for Custom Loaders
+
+1. **Error Handling**: Always wrap external service calls in try-catch blocks
+2. **Timeouts**: Set appropriate timeouts for network requests
+3. **Caching**: Consider implementing caching for frequently accessed configurations
+4. **Authentication**: Handle authentication tokens and credentials securely
+5. **Connection Pooling**: Reuse connections when possible
+6. **Health Checks**: Implement health checks for external services
+
+```typescript
+// Example with error handling and caching
+export default class RobustEtcdLoader extends BaseLoader {
+    private client: Etcd3;
+    private cache = new Map<string, { content: string; timestamp: number }>();
+    private cacheTTL = 60000; // 1 minute
+
+    protected async loadFile(fileName: string): Promise<string> {
+        // Check cache first
+        const cached = this.cache.get(fileName);
+        if (cached && (Date.now() - cached.timestamp) < this.cacheTTL) {
+            return cached.content;
+        }
+
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                const value = await this.client.get(fileName);
+                if (value) {
+                    const content = value.toString();
+                    // Cache successful result
+                    this.cache.set(fileName, { content, timestamp: Date.now() });
+                    return content;
+                }
+            } catch (error) {
+                retries--;
+                if (retries === 0) throw error;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        
+        throw new Error(`Configuration '${fileName}' not found after retries`);
+    }
+}
+```
+
 ## Contributing
 
 We welcome contributions! Please see our [contribution guidelines](CONTRIBUTING.md) for details.
