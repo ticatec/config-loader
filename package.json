@@ -21,10 +21,6 @@
     "dev": "tsc --watch",
     "clean": "rm -rf ./dist",
     "prepublishOnly": "npm run build",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "test:local": "node -r dotenv/config dist/test/LocalFileDemo.js",
-    "test:consul": "node -r dotenv/config dist/test/ConsulDemo.js",
-    "test:nacos": "node -r dotenv/config dist/test/NacosDemo.js",
     "lint": "echo \"No linting configured\"",
     "typecheck": "tsc --noEmit",
     "publish-public": "npm publish --access public"
