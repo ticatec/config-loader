@@ -1,141 +1,276 @@
 # Configuration Loader
 
-This project provides a flexible and extensible configuration loader that supports loading configurations from various sources, including local files, Consul, and Nacos.
+A versatile and extensible configuration loader for Node.js applications that supports loading configurations from multiple sources including local files, Consul, and Nacos, with YAML parsing and advanced merging capabilities.
 
-[中文文档](./README_CN.md)
+[中文文档](./README_CN.md) | English
+
+[![Version](https://img.shields.io/npm/v/@ticatec/config-loader)](https://www.npmjs.com/package/@ticatec/config-loader)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
--   **Abstraction:** Uses an abstract `BaseLoader` class, allowing easy extension for new configuration sources.
--   **YAML Support:** Parses configuration files in YAML format.
--   **Include Mechanism:** Supports including and merging configurations from other files or sources.
--   **Deep Merge:** Implements a deep merge function to combine configurations.
--   **Source Flexibility:** Supports loading configurations from local files, Consul, and Nacos.
--   **Environment Variable Configuration:** Configures loaders using environment variables.
+- **🏗️ Extensible Architecture**: Built with abstract `BaseLoader` class for easy extension to new configuration sources
+- **📄 YAML Support**: Native parsing of YAML configuration files with full feature support
+- **🔗 Include Mechanism**: Advanced configuration composition through file includes with deep merging
+- **🌊 Deep Merge**: Intelligent merging of nested objects and arrays from multiple configuration sources
+- **📡 Multiple Sources**: Support for local files, Consul KV store, and Nacos configuration center
+- **⚙️ Environment Configuration**: Easy configuration through environment variables
+- **🔄 Post-Processing**: Custom content transformation with PostLoader functions
 
 ## Installation
 
 ```bash
-npm i @ticatec/config-loade
+npm install @ticatec/config-loader
 ```
 
-## Usage
-
-### Basic Usage
+## Quick Start
 
 ```typescript
-import { getLoader } from '@ticatec/config-loade'; // Adjust the path as needed
+import { loadConfig } from '@ticatec/config-loader';
+import dotenv from 'dotenv';
 
-async function loadConfiguration(type: string, fileName: string, regexp?: RegExp, newString?: string) {
-  const loader = await getLoader(type);
-  const config = await loader.load(fileName, regexp, newString);
-  console.log(config);
-  return config;
+async function main() {
+    dotenv.config();
+    
+    const config = await loadConfig(
+        'local', // or 'consul', 'nacos'
+        'app.yaml',
+        'logger.yaml',
+        (content: string) => content.replace(/#{service-name}/g, 'my-service')
+    );
+    
+    console.log('App Config:', config.appConf);
+    console.log('Logger Config:', config.loggerConf);
 }
 
-// Example usage with a local file
-loadConfiguration('local', 'config.yaml');
-
-// Example usage with Consul
-// Make sure to set CONSUL_HOST, CONSUL_PORT, and CONSUL_TOKEN environment variables
-loadConfiguration('consul', 'my-config-key');
-
-// Example usage with Nacos
-// Make sure to set NACOS_ENDPOINT, NACOS_NAMESPACE, and NACOS_GROUP environment variables
-loadConfiguration('nacos', 'my-data-id');
+main();
 ```
 
-### Loading from Local Files
+## Configuration Sources
 
-Create a `config.yaml` file:
+### Local Files
 
+The default configuration source loads files from the `./config` directory.
+
+**Environment Variables**: None required
+
+**Example Structure**:
+```
+config/
+├── app.yaml
+├── database.yaml
+└── logger.yaml
+```
+
+### Consul KV Store
+
+Load configurations from HashiCorp Consul's Key-Value store.
+
+**Required Environment Variables**:
+- `CONSUL_HOST` - Consul server hostname
+- `CONSUL_PORT` - Consul server port
+- `CONSUL_TOKEN` - Consul ACL token (if ACLs are enabled)
+- `SSL` - Set to "true" for HTTPS connections
+
+**Example**:
+```typescript
+// Set environment variables
+process.env.CONSUL_HOST = 'localhost';
+process.env.CONSUL_PORT = '8500';
+process.env.CONSUL_TOKEN = 'your-consul-token';
+
+const config = await loadConfig('consul', 'app/config', 'app/logger', null);
+```
+
+### Nacos Configuration Center
+
+Load configurations from Alibaba Nacos configuration management platform.
+
+**Required Environment Variables**:
+- `NACOS_ENDPOINT` - Nacos server endpoint (e.g., `http://localhost:8848`)
+- `NACOS_NAMESPACE` - Nacos namespace ID
+- `NACOS_GROUP` - Nacos group (defaults to "default")
+- `NACOS_PORT` - Nacos server port (optional, defaults based on endpoint)
+
+**Example**:
+```typescript
+// Set environment variables
+process.env.NACOS_ENDPOINT = 'http://localhost:8848';
+process.env.NACOS_NAMESPACE = 'production';
+process.env.NACOS_GROUP = 'app-configs';
+
+const config = await loadConfig('nacos', 'app.yaml', 'logger.yaml', null);
+```
+
+## Advanced Features
+
+### Configuration Includes
+
+The include mechanism allows you to compose configurations from multiple sources:
+
+```yaml
+# main-config.yaml
+app:
+  name: My Application
+  version: 1.0.0
+
+includes:
+  - file: database.yaml
+    key: database
+    params:
+      poolSize: 10
+  - file: redis.yaml
+    key: cache
+    params:
+      ttl: 3600
+```
+
+```yaml
+# database.yaml
+host: localhost
+port: 5432
+name: mydb
+```
+
+The resulting configuration will be:
 ```yaml
 app:
   name: My Application
   version: 1.0.0
+database:
+  host: localhost
+  port: 5432
+  name: mydb
+  poolSize: 10
+cache:
+  # redis.yaml content merged here
+  ttl: 3600
+```
+
+### Post-Processing
+
+Transform configuration content before parsing:
+
+```typescript
+const postProcessor = (content: string): string => {
+    return content
+        .replace(/#{service-name}/g, 'user-service')
+        .replace(/#{environment}/g, process.env.NODE_ENV || 'development');
+};
+
+const config = await loadConfig('local', 'app.yaml', 'logger.yaml', postProcessor);
+```
+
+## API Reference
+
+### Core Functions
+
+#### `loadConfig(configMode, configFile, logFile, loggerPostLoader)`
+
+Load both application and logger configurations.
+
+- `configMode` - Configuration source type: 'local', 'consul', or 'nacos'
+- `configFile` - Path/key to the main configuration file
+- `logFile` - Path/key to the logger configuration file  
+- `loggerPostLoader` - Optional post-processing function for logger config
+
+**Returns**: `Promise<{appConf: any, loggerConf: any}>`
+
+#### `getLoader(type)`
+
+Factory function to create configuration loaders.
+
+- `type` - Loader type: 'local', 'consul', or 'nacos'
+
+**Returns**: `Promise<BaseLoader>`
+
+### BaseLoader Class
+
+Abstract base class for all configuration loaders.
+
+#### Methods
+
+- `load(fileName, postLoader?)` - Load configuration with includes support
+- `loadConfig(fileName, postLoader?)` - Load and parse single configuration file
+- `deepMerge(obj1, obj2)` - Deep merge two configuration objects
+
+## Examples
+
+### Basic Local Configuration
+
+```typescript
+import { getLoader } from '@ticatec/config-loader';
+
+const loader = await getLoader('local');
+const config = await loader.load('app.yaml');
+console.log(config);
+```
+
+### Consul with Authentication
+
+```typescript
+import { loadConfig } from '@ticatec/config-loader';
+
+process.env.CONSUL_HOST = 'consul.example.com';
+process.env.CONSUL_PORT = '8500';
+process.env.CONSUL_TOKEN = 'secret-token';
+process.env.SSL = 'true';
+
+const config = await loadConfig('consul', 'apps/myapp/config', 'apps/myapp/logging', null);
+```
+
+### Complex Include Structure
+
+```yaml
+# app.yaml
+app:
+  name: E-commerce API
+  version: 2.1.0
+
 includes:
-  - file: include.yaml
-    key: nested
+  - file: database/postgres.yaml
+    key: database
     params:
-      extra: true
+      ssl: true
+  - file: services/redis.yaml  
+    key: cache
+  - file: services/elasticsearch.yaml
+    key: search
+    params:
+      index_prefix: ecommerce_v2
 ```
 
-Create an `include.yaml` file:
+## Contributing
 
-```yaml
-message: Hello, World!
+We welcome contributions! Please see our [contribution guidelines](CONTRIBUTING.md) for details.
+
+### Development Setup
+
+```bash
+git clone https://github.com/ticatec/config-loader.git
+cd config-loader
+npm install
+npm run build
 ```
 
-### Loading from Consul
+### Running Tests
 
-Ensure you have a Consul server running and accessible. Set the following environment variables:
-
--   `CONSUL_HOST`: Consul server host.
--   `CONSUL_PORT`: Consul server port.
--   `CONSUL_TOKEN`: Consul access token (if required).
--   `SSL`: "true" or "false" to indicate if SSL is used.
-
-Then, store your configuration in Consul KV store with a specific key.
-
-### Loading from Nacos
-
-Ensure you have a Nacos server running and accessible. Set the following environment variables:
-
--   `NACOS_ENDPOINT`: Nacos server endpoint (e.g., `http://localhost:8848`).
--   `NACOS_NAMESPACE`: Nacos namespace.
--   `NACOS_GROUP`: Nacos group (defaults to `default`).
--   `NACOS_PORT`: Nacos server port.
-
-Then, store your configuration in Nacos Config with a specific data ID and group.
-
-## API
-
-### `BaseLoader`
-
--   **`load(fileName: string, regexp?: RegExp, newString?: string): Promise<any>`**: Loads the configuration from the specified file or source. Optionally, replaces parts of the configuration using a regular expression.
-
-
-### `ConsulLoader`
-
--   Loads configurations from Consul KV store.
--   Requires `CONSUL_HOST`, `CONSUL_PORT`, `CONSUL_TOKEN`, and optionally `SSL` environment variables.
-
-### `NacosConfigLoader`
-
--   Loads configurations from Nacos Config.
--   Requires `NACOS_ENDPOINT`, `NACOS_NAMESPACE`, `NACOS_GROUP`, and optionally `NACOS_PORT` environment variables.
-
-### `getLoader(type: string): Promise<BaseLoader>`
-
--   A factory function that returns an instance of the appropriate loader based on the `type` parameter (`'local'`, `'consul'`, or `'nacos'`).
-
-## Include Mechanism
-
-The `includes` key in the configuration allows you to include and merge configurations from other files or sources.
-
-```yaml
-includes:
-  - file: include.yaml # file or key for the config
-    key: nested # the key to merge the include config to
-    params: # any extra params you want to merge to the include config.
-      extra: true
+```bash
+npm test
 ```
-
-## Extending
-
-To add support for a new configuration source, create a new class that extends `BaseLoader` and implements the `loadFile` method. Then, update the `getLoader` function to return an instance of your new loader.
-
-
-## Contribution
-
-Contributions are welcome! Please submit issues and pull requests.
 
 ## License
 
 Copyright © 2023 Ticatec. All rights reserved.
 
-This library is released under the MIT license. For details, see the [LICENSE](LICENSE) file.
+This library is released under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## Contact
+## Support
 
-huili.f@gmail.com
+- 📧 Email: huili.f@gmail.com
+- 🐛 Issues: [GitHub Issues](https://github.com/ticatec/config-loader/issues)
+- 📖 Documentation: [GitHub Pages](https://ticatec.github.io/config-loader)
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and changes.

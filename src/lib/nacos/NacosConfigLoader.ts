@@ -7,6 +7,9 @@ export default class NacosConfigLoader extends BaseLoader {
     private readonly group: string;
     private client: NacosConfigClient;
 
+    /**
+     * Create a new NacosConfigLoader instance with configuration from environment variables
+     */
     constructor() {
         super();
         let options: ClientOptions = {
@@ -21,6 +24,12 @@ export default class NacosConfigLoader extends BaseLoader {
     }
 
 
+    /**
+     * Load configuration file content from Nacos configuration center
+     * @param fileName - The data ID of the configuration in Nacos
+     * @returns Promise that resolves to the configuration content as string
+     * @protected
+     */
     protected async loadFile(fileName: string): Promise<string> {
         return await this.client.getConfig(fileName, this.group);
     }

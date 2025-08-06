@@ -1,13 +1,15 @@
-import BaseLoader, {getLoader} from "../index";
+import  { loadConfig} from "../index";
 import dotenv from "dotenv"
 
 const main = async (): Promise<any> => {
     dotenv.config();
     let type = process.env['CONFIG_MODE'];
-    let loader: BaseLoader = await getLoader(type);
-    console.log(await loader.load(process.env['CONFIG_FILE']));
-
-    console.log(await loader.load('dev/common-logger.yaml', /#{service-name}/g, 'my-service'))
+    let config = await loadConfig(type, process.env['CONFIG_FILE'], 'dev/common-logger.yaml', (content: string): string => {
+        let s= content.replace(/#{service-name}/g, 'my-service');
+        console.log("替换后", s);
+        return s;
+    });
+    console.log(config.appConf, config.loggerConf)
 }
 
 main().then(()=>{

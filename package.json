@@ -1,39 +1,87 @@
 {
   "name": "@ticatec/config-loader",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A versatile configuration loader for Node.js, supporting YAML format and various sources like local files, Consul, and Nacos, with include and deep merge capabilities.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rm -rf ./dist && tsc",
-    "publish-public": "npm publish --access public"
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
   "files": [
-    "index.js",
-    "index.d.ts",
-    "dist/lib/",
-    "README*.md"
+    "dist/",
+    "README*.md",
+    "LICENSE"
   ],
-  "keywords": ["config", "configuration", "loader", "yaml", "consul", "nacos", "node.js"],
-  "author": "Henry Feng",
+  "scripts": {
+    "build": "rm -rf ./dist && tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf ./dist",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:local": "node -r dotenv/config dist/test/LocalFileDemo.js",
+    "test:consul": "node -r dotenv/config dist/test/ConsulDemo.js",
+    "test:nacos": "node -r dotenv/config dist/test/NacosDemo.js",
+    "lint": "echo \"No linting configured\"",
+    "typecheck": "tsc --noEmit",
+    "publish-public": "npm publish --access public"
+  },
+  "keywords": [
+    "config",
+    "configuration",
+    "loader",
+    "yaml",
+    "consul",
+    "nacos",
+    "node.js",
+    "typescript",
+    "microservices",
+    "devops"
+  ],
+  "author": {
+    "name": "Henry Feng",
+    "email": "huili.f@gmail.com"
+  },
   "license": "MIT",
   "repository": {
-    "type": "https",
+    "type": "git",
     "url": "https://github.com/ticatec/config-loader.git"
   },
   "bugs": {
     "url": "https://github.com/ticatec/config-loader/issues"
   },
-  "homepage": "https://github.com/ticatec/config-loader",
+  "homepage": "https://github.com/ticatec/config-loader#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "dependencies": {
     "yaml": "^2.7.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.11",
-    "dotenv": "^16.4.7",
     "consul": "^2.0.1",
+    "dotenv": "^16.4.7",
     "log4js": "^6.7.0",
+    "nacos": "^2.6.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "consul": "^2.0.0",
     "nacos": "^2.6.0"
+  },
+  "peerDependenciesMeta": {
+    "consul": {
+      "optional": true
+    },
+    "nacos": {
+      "optional": true
+    }
   }
 }
