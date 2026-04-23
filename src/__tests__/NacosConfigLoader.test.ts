@@ -1,4 +1,4 @@
-import NacosConfigLoader from '../NacosConfigLoader';
+import NacosConfigLoader from '../lib/nacos/NacosConfigLoader';
 import { NacosConfigClient } from 'nacos';
 
 // Mock nacos module

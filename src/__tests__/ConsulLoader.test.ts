@@ -1,4 +1,4 @@
-import ConsulLoader from '../ConsulLoader';
+import ConsulLoader from '../lib/consul/ConsulLoader';
 import Consul from 'consul';
 
 // Mock Consul module
