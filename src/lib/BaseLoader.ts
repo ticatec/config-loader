@@ -31,8 +31,11 @@ export default abstract class BaseLoader {
         if (postLoader) {
             text = postLoader(text);
         }
-        console.log('解析文本', text);
-        return YAML.parse(text);
+        try {
+            return YAML.parse(text);
+        } catch (err) {
+            throw new Error(`Failed to parse YAML configuration file '${fileName}': ${err instanceof Error ? err.message : String(err)}`);
+        }
     }
 
 

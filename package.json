@@ -1,6 +1,6 @@
 {
   "name": "@ticatec/config-loader",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A versatile configuration loader for Node.js, supporting YAML format and various sources like local files, Consul, and Nacos, with include and deep merge capabilities.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,9 +20,12 @@
     "build": "rm -rf ./dist && tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf ./dist",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build",
     "lint": "echo \"No linting configured\"",
     "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "publish-public": "npm publish --access public"
   },
   "keywords": [
@@ -61,11 +64,14 @@
     "yaml": "^2.7.0"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.13.11",
     "consul": "^2.0.1",
     "dotenv": "^16.4.7",
+    "jest": "^30.3.0",
     "log4js": "^6.7.0",
     "nacos": "^2.6.0",
+    "ts-jest": "^29.4.9",
     "typescript": "^5.0.0"
   },
   "peerDependencies": {

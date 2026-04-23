@@ -18,9 +18,9 @@ export default class ConsulLoader extends BaseLoader {
                 token: process.env['CONSUL_TOKEN']
             }
         }
-        let port: string = process.env['CONSUL_PORT'];
-        config.port = port != null ? parseInt(port) : (config.secure ? 443 : 80);
-        this.consul = new Consul(config)
+        const port: string | undefined = process.env['CONSUL_PORT'];
+        config.port = port != null ? parseInt(port, 10) : (config.secure ? 443 : 80);
+        this.consul = new Consul(config);
     }
 
     /**

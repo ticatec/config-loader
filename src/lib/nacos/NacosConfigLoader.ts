@@ -17,9 +17,13 @@ export default class NacosConfigLoader extends BaseLoader {
             namespace: process.env['NACOS_NAMESPACE']
         }
         this.group = process.env['NACOS_GROUP'] ?? 'default';
-        let isSSL = options.endpoint.toLowerCase().startsWith('https://');
-        let port: string = process.env['NACOS_PORT'];
-        options.serverPort =  port != null ? parseInt(port) : (isSSL ? 443 : 80);
+        const endpoint = options.endpoint;
+        if (!endpoint) {
+            throw new Error('NACOS_ENDPOINT environment variable is required');
+        }
+        const isSSL = endpoint.toLowerCase().startsWith('https://');
+        const port: string | undefined = process.env['NACOS_PORT'];
+        options.serverPort = port != null ? parseInt(port, 10) : (isSSL ? 443 : 80);
         this.client = new NacosConfigClient(options);
     }
 
