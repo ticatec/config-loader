@@ -11,8 +11,11 @@ describe('ConsulLoader', () => {
     let originalEnv: NodeJS.ProcessEnv;
 
     beforeEach(() => {
-        originalEnv = process.env;
-        process.env = {};
+        jest.clearAllMocks();
+        originalEnv = { ...process.env };
+        for (const key of Object.keys(process.env)) {
+            delete process.env[key];
+        }
 
         // Create a mock Consul instance
         mockConsul = {
@@ -25,7 +28,10 @@ describe('ConsulLoader', () => {
     });
 
     afterEach(() => {
-        process.env = originalEnv;
+        for (const key of Object.keys(process.env)) {
+            delete process.env[key];
+        }
+        Object.assign(process.env, originalEnv);
     });
 
     describe('constructor', () => {
@@ -216,7 +222,7 @@ database:
         });
 
         it('should handle YAML parse errors', async () => {
-            const invalidYaml = 'invalid:\n  bad:\n    indentation';
+            const invalidYaml = 'invalid: [unclosed bracket';
             mockConsul.kv.get.mockResolvedValue({ Value: invalidYaml });
 
             await expect(loader.load('config/invalid', null)).rejects.toThrow(

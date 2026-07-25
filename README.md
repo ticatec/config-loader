@@ -9,6 +9,7 @@ A versatile and extensible configuration loader for Node.js applications that su
 
 ## Features
 
+- **⚡ Dual Module Support**: Full ES Module (ESM) & CommonJS (CJS) compatibility
 - **🏗️ Extensible Architecture**: Built with abstract `BaseLoader` class for easy extension to new configuration sources
 - **📄 YAML Support**: Native parsing of YAML configuration files with full feature support
 - **🔗 Include Mechanism**: Advanced configuration composition through file includes with deep merging
@@ -20,13 +21,24 @@ A versatile and extensible configuration loader for Node.js applications that su
 ## Installation
 
 ```bash
+pnpm add @ticatec/config-loader
+# or npm
 npm install @ticatec/config-loader
 ```
 
 ## Quick Start
 
+**ES Modules (ESM):**
 ```typescript
 import { loadConfig } from '@ticatec/config-loader';
+```
+
+**CommonJS (CJS):**
+```javascript
+const { loadConfig } = require('@ticatec/config-loader');
+```
+
+```typescript
 import dotenv from 'dotenv';
 
 async function main() {

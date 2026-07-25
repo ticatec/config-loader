@@ -1,4 +1,4 @@
-import BaseLoader from "../BaseLoader";
+import BaseLoader from "../BaseLoader.js";
 import path from "node:path";
 import * as fs from "node:fs";
 
@@ -13,7 +13,6 @@ export default class LocalFileLoader extends BaseLoader {
         super();
         this.root = `${process.cwd()}/config`;
     }
-
 
     /**
      * Load configuration file content from local file system
@@ -30,8 +29,8 @@ export default class LocalFileLoader extends BaseLoader {
                 } else {
                     resolve(data);
                 }
-            })
-        })
+            });
+        });
     }
 
 }

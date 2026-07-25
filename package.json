@@ -2,31 +2,33 @@
   "name": "@ticatec/config-loader",
   "version": "0.2.0",
   "description": "A versatile configuration loader for Node.js, supporting YAML format and various sources like local files, Consul, and Nacos, with include and deep merge capabilities.",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "lib/cjs/index.js",
+  "module": "lib/esm/index.js",
+  "types": "lib/cjs/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./lib/cjs/index.d.ts",
+      "import": "./lib/esm/index.js",
+      "require": "./lib/cjs/index.js"
     }
   },
   "files": [
-    "dist/",
+    "lib/",
     "README*.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "rm -rf ./dist && tsc",
+    "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"require('fs').writeFileSync('./lib/cjs/package.json', '{\\\"type\\\": \\\"commonjs\\\"}')\"",
+    "build:esm": "tsc -p tsconfig.esm.json && node -e \"require('fs').writeFileSync('./lib/esm/package.json', '{\\\"type\\\": \\\"module\\\"}')\"",
+    "build": "node -e \"require('fs').rmSync('./lib', { recursive: true, force: true })\" && pnpm build:cjs && pnpm build:esm",
     "dev": "tsc --watch",
-    "clean": "rm -rf ./dist",
-    "prepublishOnly": "npm run typecheck && npm run test && npm run build",
-    "lint": "echo \"No linting configured\"",
+    "clean": "node -e \"require('fs').rmSync('./lib', { recursive: true, force: true })\"",
+    "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "publish-public": "npm publish --access public"
+    "publish-public": "pnpm publish --access public --no-git-checks"
   },
   "keywords": [
     "config",
@@ -64,14 +66,13 @@
     "yaml": "^2.7.0"
   },
   "devDependencies": {
-    "@types/jest": "^30.0.0",
-    "@types/node": "^22.13.11",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.11.17",
     "consul": "^2.0.1",
     "dotenv": "^16.4.7",
-    "jest": "^30.3.0",
-    "log4js": "^6.7.0",
+    "jest": "^29.7.0",
     "nacos": "^2.6.0",
-    "ts-jest": "^29.4.9",
+    "ts-jest": "^29.2.5",
     "typescript": "^5.0.0"
   },
   "peerDependencies": {

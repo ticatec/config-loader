@@ -1,6 +1,5 @@
-import BaseLoader from "../BaseLoader";
+import BaseLoader from "../BaseLoader.js";
 import Consul from "consul";
-
 
 export default class ConsulLoader extends BaseLoader {
 
@@ -13,13 +12,13 @@ export default class ConsulLoader extends BaseLoader {
         super();
         let config: any = {
             host: process.env['CONSUL_HOST'],
-            secure: (process.env['SSL'] ?? 'false').toLowerCase() == 'true',
+            secure: (process.env['SSL'] ?? 'false').toLowerCase() === 'true',
             defaults: {
                 token: process.env['CONSUL_TOKEN']
             }
-        }
+        };
         const port: string | undefined = process.env['CONSUL_PORT'];
-        config.port = port != null ? parseInt(port, 10) : (config.secure ? 443 : 80);
+        config.port = port != null && port !== '' ? parseInt(port, 10) : (config.secure ? 443 : 80);
         this.consul = new Consul(config);
     }
 
@@ -30,8 +29,8 @@ export default class ConsulLoader extends BaseLoader {
      * @protected
      */
     protected async loadFile(fileName: string): Promise<string> {
-        let result =await this.consul.kv.get(fileName);
-        return result?.Value;
+        let result = await this.consul.kv.get(fileName);
+        return result === null ? null : result?.Value;
     }
 
 }

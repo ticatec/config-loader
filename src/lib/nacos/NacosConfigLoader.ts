@@ -1,6 +1,5 @@
-import {ClientOptions, NacosConfigClient} from 'nacos';
-import BaseLoader from "../BaseLoader";
-
+import { ClientOptions, NacosConfigClient } from 'nacos';
+import BaseLoader from "../BaseLoader.js";
 
 export default class NacosConfigLoader extends BaseLoader {
 
@@ -15,7 +14,7 @@ export default class NacosConfigLoader extends BaseLoader {
         let options: ClientOptions = {
             endpoint: process.env['NACOS_ENDPOINT'],
             namespace: process.env['NACOS_NAMESPACE']
-        }
+        };
         this.group = process.env['NACOS_GROUP'] ?? 'default';
         const endpoint = options.endpoint;
         if (!endpoint) {
@@ -26,7 +25,6 @@ export default class NacosConfigLoader extends BaseLoader {
         options.serverPort = port != null ? parseInt(port, 10) : (isSSL ? 443 : 80);
         this.client = new NacosConfigClient(options);
     }
-
 
     /**
      * Load configuration file content from Nacos configuration center

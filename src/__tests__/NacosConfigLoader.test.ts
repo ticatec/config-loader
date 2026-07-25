@@ -10,8 +10,11 @@ describe('NacosConfigLoader', () => {
     let originalEnv: NodeJS.ProcessEnv;
 
     beforeEach(() => {
-        originalEnv = process.env;
-        process.env = {};
+        jest.clearAllMocks();
+        originalEnv = { ...process.env };
+        for (const key of Object.keys(process.env)) {
+            delete process.env[key];
+        }
 
         // Create a mock NacosConfigClient instance
         mockClient = {
@@ -22,7 +25,10 @@ describe('NacosConfigLoader', () => {
     });
 
     afterEach(() => {
-        process.env = originalEnv;
+        for (const key of Object.keys(process.env)) {
+            delete process.env[key];
+        }
+        Object.assign(process.env, originalEnv);
     });
 
     describe('constructor', () => {

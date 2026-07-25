@@ -9,6 +9,7 @@
 
 ## 特性
 
+- **⚡ 双模式支持**: 完整支持 ES Modules (ESM) 与 CommonJS (CJS)
 - **🏗️ 可扩展架构**: 基于抽象 `BaseLoader` 类构建，易于扩展至新的配置源
 - **📄 YAML 支持**: 原生解析 YAML 配置文件，支持完整功能特性
 - **🔗 包含机制**: 通过文件包含和深度合并实现高级配置组合
@@ -20,13 +21,24 @@
 ## 安装
 
 ```bash
+pnpm add @ticatec/config-loader
+# 或 npm
 npm install @ticatec/config-loader
 ```
 
 ## 快速开始
 
+**ES Modules (ESM):**
 ```typescript
 import { loadConfig } from '@ticatec/config-loader';
+```
+
+**CommonJS (CJS):**
+```javascript
+const { loadConfig } = require('@ticatec/config-loader');
+```
+
+```typescript
 import dotenv from 'dotenv';
 
 async function main() {
