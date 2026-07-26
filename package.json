@@ -1,6 +1,6 @@
 {
   "name": "@ticatec/config-loader",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "A versatile configuration loader for Node.js, supporting YAML format and various sources like local files, Consul, and Nacos, with include and deep merge capabilities.",
   "main": "lib/cjs/index.js",
   "module": "lib/esm/index.js",
