@@ -4,14 +4,14 @@ import * as fs from "node:fs";
 
 export default class LocalFileLoader extends BaseLoader {
 
-    private root: string;
+    private readonly root: string;
 
     /**
-     * Create a new LocalFileLoader instance with config directory set to './config'
+     * Create a new LocalFileLoader instance with config directory set to process.cwd() + '/config'
      */
     constructor() {
         super();
-        this.root = `${process.cwd()}/config`;
+        this.root = path.resolve(process.cwd(), 'config');
     }
 
     /**
@@ -21,9 +21,14 @@ export default class LocalFileLoader extends BaseLoader {
      * @protected
      */
     protected loadFile(fileName: string): Promise<string> {
-        let file: string = path.resolve(`${this.root}/${fileName}`);
+        const resolvedFile = path.resolve(this.root, fileName);
+        const relative = path.relative(this.root, resolvedFile);
+        if (relative.startsWith('..') || path.isAbsolute(relative)) {
+            return Promise.reject(new Error(`Path traversal rejected: '${fileName}' escapes root directory '${this.root}'`));
+        }
+
         return new Promise((resolve, reject) => {
-            fs.readFile(file, 'utf8', (err, data) => {
+            fs.readFile(resolvedFile, 'utf8', (err, data) => {
                 if (err) {
                     reject(err);
                 } else {
@@ -32,5 +37,4 @@ export default class LocalFileLoader extends BaseLoader {
             });
         });
     }
-
 }

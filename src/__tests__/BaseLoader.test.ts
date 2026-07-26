@@ -298,5 +298,128 @@ app:
             const result = await loader.load('main.yaml', null);
             expect(result).not.toHaveProperty('includes');
         });
+
+        it('should recursively load multi-level nested includes', async () => {
+            const mainConfig = `
+includes:
+  - file: level1.yaml
+    key: level1
+mainKey: mainValue
+            `.trim();
+
+            const level1Config = `
+includes:
+  - file: level2.yaml
+    key: level2
+l1Key: l1Value
+            `.trim();
+
+            const level2Config = `
+l2Key: l2Value
+            `.trim();
+
+            loader.setMockData('main.yaml', mainConfig);
+            loader.setMockData('level1.yaml', level1Config);
+            loader.setMockData('level2.yaml', level2Config);
+
+            const result = await loader.load('main.yaml', null);
+            expect(result).toEqual({
+                mainKey: 'mainValue',
+                level1: {
+                    l1Key: 'l1Value',
+                    level2: {
+                        l2Key: 'l2Value'
+                    }
+                }
+            });
+        });
+
+        it('should handle objects with constructor property key without discarding data', () => {
+            const obj1 = { constructor: 'app', name: 'service-a' };
+            const obj2 = { version: '1.0.0' };
+            const result = (loader as any).deepMerge(obj1, obj2);
+            expect(result).toEqual({ constructor: 'app', name: 'service-a', version: '1.0.0' });
+        });
+
+        it('should prevent prototype pollution during deepMerge', () => {
+            const obj1 = { name: 'safe' };
+            const obj2 = JSON.parse('{"__proto__": {"polluted": true}, "constructor": {"polluted": true}}');
+            const result = (loader as any).deepMerge(obj1, obj2);
+            expect(result.name).toBe('safe');
+            expect(({} as any).polluted).toBeUndefined();
+        });
+
+        it('should detect circular includes and throw Error', async () => {
+            const fileA = `
+includes:
+  - file: fileB.yaml
+    key: b
+aKey: aValue
+            `.trim();
+
+            const fileB = `
+includes:
+  - file: fileA.yaml
+    key: a
+bKey: bValue
+            `.trim();
+
+            loader.setMockData('fileA.yaml', fileA);
+            loader.setMockData('fileB.yaml', fileB);
+
+            await expect(loader.load('fileA.yaml')).rejects.toThrow('Circular include detected: fileA.yaml -> fileB.yaml -> fileA.yaml');
+        });
+
+        it('should handle root-level YAML array without triggering includes false positive', async () => {
+            const rootArrayYaml = `
+- item1
+- item2
+- item3
+            `.trim();
+
+            loader.setMockData('array-root.yaml', rootArrayYaml);
+            const result = await loader.load('array-root.yaml');
+            expect(result).toEqual(['item1', 'item2', 'item3']);
+        });
+
+        it('should reject reserved prototype keys in include key', async () => {
+            const protoKeyConfig = `
+includes:
+  - file: other.yaml
+    key: __proto__
+app:
+  name: proto-test
+            `.trim();
+
+            loader.setMockData('main.yaml', protoKeyConfig);
+            loader.setMockData('other.yaml', 'foo: bar');
+
+            await expect(loader.load('main.yaml')).rejects.toThrow("Invalid include item at index 0 in 'main.yaml': 'key' cannot be reserved prototype property '__proto__'.");
+        });
+
+        it('should fail fast when include item has missing or invalid file property', async () => {
+            const mainConfig = `
+includes:
+  - filename: db.yaml
+app:
+  name: typo-test
+            `.trim();
+
+            loader.setMockData('main.yaml', mainConfig);
+            await expect(loader.load('main.yaml')).rejects.toThrow("Invalid include item at index 0 in 'main.yaml': 'file' property must be a non-empty string.");
+        });
+    });
+
+    describe('getLoader', () => {
+        it('should throw error for unknown or unsupported config mode', async () => {
+            const { getLoader } = await import('../lib/BaseLoader');
+            await expect(getLoader('consull')).rejects.toThrow("Unknown or unsupported config mode 'consull'");
+        });
+
+        it('should return LocalFileLoader for local mode', async () => {
+            const { getLoader } = await import('../lib/BaseLoader');
+            const loaderInstance = await getLoader('local');
+            expect(loaderInstance.constructor.name).toBe('LocalFileLoader');
+        });
     });
 });

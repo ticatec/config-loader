@@ -78,11 +78,12 @@ config/
 
 从 HashiCorp Consul 的键值存储加载配置。
 
-**必需的环境变量**:
-- `CONSUL_HOST` - Consul 服务器主机名
-- `CONSUL_PORT` - Consul 服务器端口
-- `CONSUL_TOKEN` - Consul ACL 令牌（如果启用了 ACL）
-- `SSL` - 设置为 "true" 以使用 HTTPS 连接
+**环境变量配置**:
+- `CONSUL_HOST` - Consul 服务器主机名或 IP
+- `CONSUL_PORT` - Consul 服务器端口（可选，非 SSL 默认 `8500`，SSL 模式默认 `443`）
+- `CONSUL_TOKEN` - Consul ACL 访问令牌（可选）
+- `CONSUL_SSL` - 设置为 `"true"` 启用 HTTPS 安全连接（优先于通用变量 `SSL`）
+- `SSL` - 通用 SSL 开关（兼容旧配置，设为 `"true"` 启用 HTTPS）
 
 **示例**:
 ```typescript
@@ -90,6 +91,7 @@ config/
 process.env.CONSUL_HOST = 'localhost';
 process.env.CONSUL_PORT = '8500';
 process.env.CONSUL_TOKEN = 'your-consul-token';
+process.env.CONSUL_SSL = 'false';
 
 const config = await loadConfig('consul', 'app/config', 'app/logger', null);
 ```
@@ -98,18 +100,29 @@ const config = await loadConfig('consul', 'app/config', 'app/logger', null);
 
 从阿里巴巴 Nacos 配置管理平台加载配置。
 
-**必需的环境变量**:
-- `NACOS_ENDPOINT` - Nacos 服务器端点（例如 `http://localhost:8848`）
-- `NACOS_NAMESPACE` - Nacos 命名空间 ID
-- `NACOS_GROUP` - Nacos 分组（默认为 "default"）
-- `NACOS_PORT` - Nacos 服务器端口（可选，基于端点自动判断）
+**环境变量配置与优先级**:
+- `NACOS_SERVER_ADDR` - Nacos 直连服务器地址或集群列表（**推荐，优先级最高**）。支持：
+  - 单节点地址（如 `127.0.0.1:8848`）
+  - 多节点集群列表（如 `nacos1:8848,nacos2:8848,nacos3:8848`）
+  - IPv6 地址（如 `[::1]:8848`）
+  - 完整 URL 格式（如 `http://localhost:8848` 或 `https://nacos.example.com`）
+- `NACOS_ENDPOINT` - Aliyun ACM / MSE 域名端点（如 `acm.aliyun.com`）
+- `NACOS_PORT` - Nacos 服务器端口（可选，默认 `8848`，HTTPS 模式默认 `443`）
+- `NACOS_SSL` - 设置为 `"true"` 启用 HTTPS/TLS 安全传输（优先于通用变量 `SSL`）
+- `NACOS_NAMESPACE` - Nacos 命名空间 ID（可选）
+- `NACOS_GROUP` - Nacos 配置分组（可选，默认为 `"default"`）
 
 **示例**:
 ```typescript
-// 设置环境变量
-process.env.NACOS_ENDPOINT = 'http://localhost:8848';
+// 1. 直连 Nacos 单节点/集群示例（推荐）
+process.env.NACOS_SERVER_ADDR = '127.0.0.1:8848';
+// 或多节点集群：process.env.NACOS_SERVER_ADDR = 'nacos1:8848,nacos2:8848';
 process.env.NACOS_NAMESPACE = 'production';
 process.env.NACOS_GROUP = 'app-configs';
+
+// 2. 阿里云 ACM 域名端点示例
+// process.env.NACOS_ENDPOINT = 'acm.aliyun.com';
+// process.env.NACOS_SSL = 'true';
 
 const config = await loadConfig('nacos', 'app.yaml', 'logger.yaml', null);
 ```
@@ -261,7 +274,7 @@ includes:
 #### 示例 1: etcd 配置加载器
 
 ```typescript
-import BaseLoader from '@ticatec/config-loader/dist/lib/BaseLoader';
+import BaseLoader from '@ticatec/config-loader';
 import { Etcd3 } from 'etcd3';
 
 export default class EtcdLoader extends BaseLoader {
@@ -314,7 +327,7 @@ const config = await loader.load('/myapp/config/production.yaml');
 #### 示例 2: Eureka 配置加载器
 
 ```typescript
-import BaseLoader from '@ticatec/config-loader/dist/lib/BaseLoader';
+import BaseLoader from '@ticatec/config-loader';
 import axios from 'axios';
 
 export default class EurekaLoader extends BaseLoader {

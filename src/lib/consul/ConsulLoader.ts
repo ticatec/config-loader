@@ -1,6 +1,18 @@
 import BaseLoader from "../BaseLoader.js";
 import Consul from "consul";
 
+function parsePort(portStr: string | undefined, envName: string): number | undefined {
+    if (portStr == null || portStr.trim() === '') {
+        return undefined;
+    }
+    const trimmed = portStr.trim();
+    const num = Number(trimmed);
+    if (!Number.isInteger(num) || num < 1 || num > 65535 || String(num) !== trimmed) {
+        throw new Error(`Invalid ${envName} '${portStr}': Must be a positive integer between 1 and 65535.`);
+    }
+    return num;
+}
+
 export default class ConsulLoader extends BaseLoader {
 
     private readonly consul: Consul;
@@ -10,15 +22,22 @@ export default class ConsulLoader extends BaseLoader {
      */
     constructor() {
         super();
-        let config: any = {
+        const sslEnv = (process.env['CONSUL_SSL'] ?? process.env['SSL'] ?? 'false').toLowerCase() === 'true';
+        const config: any = {
             host: process.env['CONSUL_HOST'],
-            secure: (process.env['SSL'] ?? 'false').toLowerCase() === 'true',
+            secure: sslEnv,
             defaults: {
                 token: process.env['CONSUL_TOKEN']
             }
         };
-        const port: string | undefined = process.env['CONSUL_PORT'];
-        config.port = port != null && port !== '' ? parseInt(port, 10) : (config.secure ? 443 : 80);
+
+        const port = parsePort(process.env['CONSUL_PORT'], 'CONSUL_PORT');
+        if (port !== undefined) {
+            config.port = port;
+        } else {
+            config.port = config.secure ? 443 : 8500;
+        }
+
         this.consul = new Consul(config);
     }
 
@@ -32,5 +51,4 @@ export default class ConsulLoader extends BaseLoader {
         let result = await this.consul.kv.get(fileName);
         return result === null ? null : result?.Value;
     }
-
 }

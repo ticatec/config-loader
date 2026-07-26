@@ -78,11 +78,12 @@ config/
 
 Load configurations from HashiCorp Consul's Key-Value store.
 
-**Required Environment Variables**:
-- `CONSUL_HOST` - Consul server hostname
-- `CONSUL_PORT` - Consul server port
-- `CONSUL_TOKEN` - Consul ACL token (if ACLs are enabled)
-- `SSL` - Set to "true" for HTTPS connections
+**Environment Variable Specifications**:
+- `CONSUL_HOST` - Consul server hostname or IP address
+- `CONSUL_PORT` - Consul server port (optional, default `8500`, default `443` in SSL mode)
+- `CONSUL_TOKEN` - Consul ACL access token (optional)
+- `CONSUL_SSL` - Set to `"true"` to enable HTTPS connection (takes precedence over generic `SSL`)
+- `SSL` - Generic SSL flag (legacy compatibility, set to `"true"` for HTTPS)
 
 **Example**:
 ```typescript
@@ -90,26 +91,38 @@ Load configurations from HashiCorp Consul's Key-Value store.
 process.env.CONSUL_HOST = 'localhost';
 process.env.CONSUL_PORT = '8500';
 process.env.CONSUL_TOKEN = 'your-consul-token';
+process.env.CONSUL_SSL = 'false';
 
 const config = await loadConfig('consul', 'app/config', 'app/logger', null);
 ```
 
 ### Nacos Configuration Center
 
-Load configurations from Alibaba Nacos configuration management platform.
+Loads configuration from Alibaba Nacos configuration management platform.
 
-**Required Environment Variables**:
-- `NACOS_ENDPOINT` - Nacos server endpoint (e.g., `http://localhost:8848`)
-- `NACOS_NAMESPACE` - Nacos namespace ID
-- `NACOS_GROUP` - Nacos group (defaults to "default")
-- `NACOS_PORT` - Nacos server port (optional, defaults based on endpoint)
+**Environment Variables & Priority**:
+- `NACOS_SERVER_ADDR` - Direct Nacos server address or cluster node list (**Recommended, Highest Priority**). Supports:
+  - Single node address (e.g., `127.0.0.1:8848`)
+  - Multi-node cluster list (e.g., `nacos1:8848,nacos2:8848,nacos3:8848`)
+  - IPv6 addresses (e.g., `[::1]:8848`)
+  - Full URL formats (e.g., `http://localhost:8848` or `https://nacos.example.com`)
+- `NACOS_ENDPOINT` - Aliyun ACM / MSE domain endpoint (e.g., `acm.aliyun.com`)
+- `NACOS_PORT` - Nacos server port (optional, default `8848`, default `443` in HTTPS mode)
+- `NACOS_SSL` - Set to `"true"` to enable HTTPS/TLS connection (takes precedence over generic `SSL`)
+- `NACOS_NAMESPACE` - Nacos namespace ID (optional)
+- `NACOS_GROUP` - Nacos configuration group (optional, default: `"default"`)
 
 **Example**:
 ```typescript
-// Set environment variables
-process.env.NACOS_ENDPOINT = 'http://localhost:8848';
+// 1. Direct Nacos single node / cluster example (Recommended)
+process.env.NACOS_SERVER_ADDR = '127.0.0.1:8848';
+// Or multi-node cluster: process.env.NACOS_SERVER_ADDR = 'nacos1:8848,nacos2:8848';
 process.env.NACOS_NAMESPACE = 'production';
 process.env.NACOS_GROUP = 'app-configs';
+
+// 2. Aliyun ACM domain endpoint example
+// process.env.NACOS_ENDPOINT = 'acm.aliyun.com';
+// process.env.NACOS_SSL = 'true';
 
 const config = await loadConfig('nacos', 'app.yaml', 'logger.yaml', null);
 ```
@@ -261,7 +274,7 @@ The configuration loader is designed to be easily extensible. You can create cus
 #### Example 1: etcd Configuration Loader
 
 ```typescript
-import BaseLoader from '@ticatec/config-loader/dist/lib/BaseLoader';
+import BaseLoader from '@ticatec/config-loader';
 import { Etcd3 } from 'etcd3';
 
 export default class EtcdLoader extends BaseLoader {
@@ -314,7 +327,7 @@ const config = await loader.load('/myapp/config/production.yaml');
 #### Example 2: Eureka Configuration Loader
 
 ```typescript
-import BaseLoader from '@ticatec/config-loader/dist/lib/BaseLoader';
+import BaseLoader from '@ticatec/config-loader';
 import axios from 'axios';
 
 export default class EurekaLoader extends BaseLoader {

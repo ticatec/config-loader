@@ -1,6 +1,9 @@
 /.idea/
 /dist/
+/lib/
 /node_modules/
 /config-loader.iml
 /package-lock.json
 /coverage/
+.DS_Store
+*.DS_Store

@@ -109,6 +109,15 @@ describe('LocalFileLoader', () => {
             const result = await (loader as any).loadFile('empty.yaml');
             expect(result).toBe('');
         });
+
+        it('should reject path traversal attempts that escape the config directory', async () => {
+            await expect((loader as any).loadFile('../../secret.yaml')).rejects.toThrow(
+                "Path traversal rejected: '../../secret.yaml' escapes root directory"
+            );
+            await expect((loader as any).loadFile('/etc/passwd')).rejects.toThrow(
+                "Path traversal rejected: '/etc/passwd' escapes root directory"
+            );
+        });
     });
 
     describe('load integration', () => {
