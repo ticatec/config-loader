@@ -36,13 +36,13 @@ export default class NacosConfigLoader extends BaseLoader {
         const sslEnv = (process.env['NACOS_SSL'] ?? process.env['SSL'] ?? 'false').toLowerCase() === 'true';
 
         const options: ClientOptions = { namespace };
-
         const lowerAddr = cleanAddr.toLowerCase();
+
         if (lowerAddr.startsWith('http://') || lowerAddr.startsWith('https://')) {
-            // URL format
+            // URL format provided via NACOS_SERVER_ADDR or NACOS_ENDPOINT
             const parsedUrl = new URL(cleanAddr);
             const isSSL = sslEnv || parsedUrl.protocol === 'https:';
-            const urlPort = parsedUrl.port ? Number(parsedUrl.port) : undefined;
+            const urlPort = parsedUrl.port ? parsePort(parsedUrl.port, 'URL port') : undefined;
             const finalPort = port ?? urlPort ?? (isSSL ? 443 : 8848);
 
             options.serverAddr = `${parsedUrl.hostname}:${finalPort}`;
@@ -50,16 +50,13 @@ export default class NacosConfigLoader extends BaseLoader {
                 options.ssl = true;
             }
         } else if (process.env['NACOS_SERVER_ADDR'] || cleanAddr.includes(',') || cleanAddr.includes(':')) {
-            // Nacos Server address or cluster list format (e.g. 'nacos1:8848,nacos2:8848', '[::1]:8848', '127.0.0.1:8848')
+            // Direct Nacos Server address or cluster list format (e.g. 'nacos1:8848,nacos2:8848', '[::1]:8848', '127.0.0.1:8848')
             if (cleanAddr.includes(',')) {
-                // Multi-node cluster list: pass directly to SDK serverAddr without manual splitting
                 options.serverAddr = cleanAddr;
             } else if (!cleanAddr.includes(':') && !cleanAddr.startsWith('[')) {
-                // Single host without port specified
                 const finalPort = port ?? (sslEnv ? 443 : 8848);
                 options.serverAddr = `${cleanAddr}:${finalPort}`;
             } else {
-                // Already contains port or IPv6 address format
                 options.serverAddr = cleanAddr;
             }
 
@@ -69,7 +66,7 @@ export default class NacosConfigLoader extends BaseLoader {
         } else {
             // Domain endpoint mode for Aliyun ACM / MSE (e.g. 'acm.aliyun.com')
             options.endpoint = cleanAddr;
-            if (port) {
+            if (port !== undefined) {
                 options.serverPort = port;
             }
             if (sslEnv) {

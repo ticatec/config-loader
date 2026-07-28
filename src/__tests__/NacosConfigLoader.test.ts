@@ -79,6 +79,16 @@ describe('NacosConfigLoader', () => {
             expect(options.endpoint).toBe('acm.aliyun.com');
         });
 
+        it('should handle NACOS_SERVER_ADDR and NACOS_SSL correctly', () => {
+            process.env.NACOS_SERVER_ADDR = 'http://127.0.0.1:8848';
+            process.env.NACOS_SSL = 'true';
+            new NacosConfigLoader();
+
+            const options = MockedNacosConfigClient.mock.calls[0][0];
+            expect(options.serverAddr).toBe('127.0.0.1:8848');
+            expect(options.ssl).toBe(true);
+        });
+
         it('should validate NACOS_PORT and reject trailing non-digits or out-of-bound values', () => {
             process.env.NACOS_ENDPOINT = 'http://localhost';
 
